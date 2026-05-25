@@ -1,13 +1,13 @@
 #include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <chrono>
-#include <queue>
-#include <iomanip>
-#include <cstdio>
+#include <fstream> //чтение и запись файлов
+#include <sstream> //парсес csv
+#include <string> 
+#include <vector> //для динамических массивов
+#include <algorithm> //встроенная сортировка
+#include <chrono> //таймер
+#include <queue> //минимальная куча
+#include <iomanip> //для 2 знаков после запятой
+#include <cstdio> //оптимизация оперативки
 
 // структура нашего заказа строго по сгенерированным полям
 struct Order {
@@ -22,11 +22,11 @@ struct Order {
 //функция для считывания данных из csv и расскладывания в структуру order
 Order parseCSVLine(const std::string& line) {
     Order order;
-    std::stringstream ss(line);
-    std::string item;
+    std::stringstream ss(line); //считываем строку в поток данных 
+    std::string item; // для считывания кусочков
 
     //1 Читаем ID
-    std::getline(ss, item, ',');//разделитель запятая
+    std::getline(ss, item, ',');//считываем, разделитель запятая
     order.id = std::stoll(item); // Конвертируем строку в long long
 
     // 2Читаем маркетплейс
@@ -56,6 +56,7 @@ std::string orderToCSV(const Order& order) {
     //пишем в фиксированном формате с 2 знаками после запятой
     ss << std::fixed << std::setprecision(2); 
     
+    //собираем по порядку
     ss << order.id << ","
        << order.marketplace << ","
        << order.order_time << ","
@@ -65,7 +66,7 @@ std::string orderToCSV(const Order& order) {
     return ss.str();
 }
 
-//для сортировки
+//====компараторы сравнения для сортировки======
 //Сравнение по ID (от меньшего к большему)
 bool compareById(const Order& a, const Order& b) {
     return a.id < b.id;
@@ -97,45 +98,44 @@ bool compareByCity(const Order& a, const Order& b) {
     if(a.delivery_city == b.delivery_city) return a.id < b.id; //если города равны, то сортируем по id
 
     return a.delivery_city < b.delivery_city;
-    
 }
+//==================================================
 
-// Функция разбивает большой файл на отсортированные куски
+//======== Функция разбивает большой файл на отсортированные куски========
 // Возвращает количество созданных временных файлов
 int splitFile(const std::string& input_path, const std::string& key) {
-    std::ifstream in(input_path);
+    std::ifstream in(input_path);//открытие файла
     if (!in.is_open()) {
         std::cerr << "Ошибка: Не удалось открыть файл " << input_path << std::endl;
         return 0;
     }
 
     std::string line;
-    // Пропускаем самую первую строчку с заголовками (id, marketplace...),
-    // чтобы она не превратилась в кашу при сортировке данных
+    // Пропускаем самую первую строчку с заголовками (id, marketplace и тд), чтобы она не превратилась в кашу при сортировке данных
     std::getline(in, line); 
 
-    std::vector<Order> chunk;
+    std::vector<Order> chunk; //динамический массив, в котором будем хранить данные и парсить
     const size_t MAX_ROWS = 500000; // 500 тысяч строк 
-    int file_count = 0;
+    int file_count = 0; //счетчик данных
 
     std::cout << "Фаза 1: Разбиение большого файла на куски..." << std::endl;
 
     while (true) {
-        bool is_eof = !std::getline(in, line);
+        bool is_eof = !std::getline(in, line); //читаем строку, если файл кончается то возращаем true;
         
-        // Если строка не пустая, парсим её и кладем в вектор
+        // Если строка не пустая, парсим её и кладем в массив
         if (!is_eof && !line.empty()) {
             chunk.push_back(parseCSVLine(line));
         }
 
-        // Если набрали миллион строк ИЛИ файл просто закончился
+        // Если набрали нужное кол-во строк ИЛИ файл закончился
         if (chunk.size() >= MAX_ROWS || (is_eof && !chunk.empty())) {
             
-            // Выбираем компаратор в зависимости от переданного ключа
+            // Выбираем компаратор сортировки в зависимости от переданного ключа
            if (key == "id") {
               file_count++;
-            chunk.clear(); 
-            chunk.shrink_to_fit();  std::sort(chunk.begin(), chunk.end(), compareById);
+            //chunk.shrink_to_fit(); std::sort(chunk.begin(), chunk.end(), compareById);
+            std::sort(chunk.begin(), chunk.end(), compareById);
             } else if (key == "amount") {
                 std::sort(chunk.begin(), chunk.end(), compareByAmount);
             } else if (key == "time") {
@@ -155,24 +155,26 @@ int splitFile(const std::string& input_path, const std::string& key) {
             std::string temp_name = "temp_" + std::to_string(file_count) + ".txt";
             std::ofstream out(temp_name);
             
+            //пишем в файлы
             for (const auto& order : chunk) {
                 out << orderToCSV(order) << "\n";
             }
             
-            out.close();
+            out.close();//закрываем файл, чтобы не засорять память
             std::cout << "Создан временный файл: " << temp_name << " (" << chunk.size() << " строк)" << std::endl;
             
             file_count++;
             chunk.clear(); // Полностью очищаем память под новый кусок
-            chunk.shrink_to_fit(); //это для уменьшения потребляемой ОЗУ смекалочка кировская
+            chunk.shrink_to_fit(); //освобождаем ОЗУ смекалочка кировская
         }
 
-        if (is_eof) break;
+        if (is_eof) break; //если прочитали файл полностью, то выходим
     }
 
-    in.close();
+    in.close(); //закрываем
     return file_count; // Возвращаем сколько всего файлов наплодили
 }
+
 
 //Теперь сливаем все файлы вместе
 //структура для хранения текущего элемента слияния
@@ -188,7 +190,7 @@ public:
     MergeElementGreater(std::string sort_key) : key(sort_key) {}
 
     bool operator()(const MergeElement& a, const MergeElement& b) const {
-        if (key == "id") return a.order.id > b.order.id;
+        if (key == "id") return a.order.id > b.order.id; //Развернули знак, так как в куче queue от макс к мин, а нам надо наоборот от мин к макс
         if (key == "amount"){
             if(a.order.order_amount == b.order.order_amount) return a.order.id > a.order.id;
             return a.order.order_amount > b.order.order_amount;
@@ -213,97 +215,102 @@ public:
     }
 };
 
-//функция слияния
+
+//=============функция слияния=================
 void mergeFiles(int file_count, const std::string& output_path, const std::string& key) {
     std::cout << "Фаза 2: Слияние " << file_count << " временных файлов в " << output_path << "..." << std::endl;
 
-    // 1. Открываем все временные файлы на чтение
+    //создаем массив из всех временных файлов на чтение 
     std::vector<std::ifstream> inputs(file_count);
     for (int i = 0; i < file_count; ++i) {
         std::string temp_name = "temp_" + std::to_string(i) + ".txt";
         inputs[i].open(temp_name);
     }
 
-    // 2. Открываем итоговый файл на запись
+    //Открываем итоговый файл на запись
     std::ofstream out(output_path);
     // Пишем заголовки в новый файл
     out << "id,marketplace,order_time,order_amount,order_weight,delivery_city\n";
 
-    // 3. Создаем минимальную кучу
+    // Создаем минимальную кучу (тип данных, контейнер хранения и класс компаратор)
     MergeElementGreater comparator(key);
     std::priority_queue<MergeElement, std::vector<MergeElement>, MergeElementGreater> min_heap(comparator);
 
-    // 4. Загружаем в кучу по первой строчке из каждого файла
+    // Читаем по первой строчке из каждого файла и загружаем подходящий 
     for (int i = 0; i < file_count; ++i) {
         std::string line;
         if (std::getline(inputs[i], line) && !line.empty()) {
             MergeElement elem;
-            elem.order = parseCSVLine(line);
-            elem.file_index = i;
-            min_heap.push(elem);
+            elem.order = parseCSVLine(line); 
+            elem.file_index = i; //запомнили из какого файла
+            min_heap.push(elem); //кидаем в кучу
         }
     }
 
-    // 5. Главный цикл слияния
+    // Главный цикл слияния, работает пока не опустеет куча
     long long rows_written = 0;
     while (!min_heap.empty()) {
-        // Берем самый минимальный элемент из кучи
+        // Берем самый минимальный элемент из кучи (самый первы .top)
         MergeElement smallest = min_heap.top();
-        min_heap.pop();
+        min_heap.pop(); //удаляем его
 
         // Записываем его в итоговый файл
         out << orderToCSV(smallest.order) << "\n";
         rows_written++;
         if (rows_written % 2000000 == 0) {
-            std::cout << "Записано в итоговый файл: " << rows_written << " строк..." << std::endl;
+            std::cout << "Записано в итоговый файл: " << rows_written << " строк..." << std::endl; //для отслеживания прогресса
         }
 
-        // Читаем следующую строку из ТОГО ЖЕ файла, откуда был этот элемент
+        // Читаем следующую строку из того же файла, откуда был этот элемент и кидаем в кучу
         std::string line;
         if (std::getline(inputs[smallest.file_index], line) && !line.empty()) {
             MergeElement next_elem;
             next_elem.order = parseCSVLine(line);
-            next_elem.file_index = smallest.file_index;
+            next_elem.file_index = smallest.file_index; //тот же файл
             min_heap.push(next_elem); // Кидаем в кучу, она сама перестроится
         }
     }
 
-    // 6. Закрываем все файлы и удаляем временные
+    // Закрываем все файлы и удаляем временные
     out.close();
     for (int i = 0; i < file_count; ++i) {
         inputs[i].close();
         std::string temp_name = "temp_" + std::to_string(i) + ".txt";
-        std::remove(temp_name.c_str()); // Удаляем по требованию (cstdio)
+        std::remove(temp_name.c_str()); // Удаляем(cstdio)
     }
     std::cout << "Все временные файлы удалены." << std::endl;
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 3) {
+    //argc - аргументы для командной строки
+    //argv - массив указателей на строки-аргументы
+    if (argc < 3) { //вызываем инструкцию как пользоваться и все доступные ключи
         std::cout << "Использование: " << argv[0] << " <имя_файла.csv> <ключ: id|amount|time|weight|marketplace|city>" << std::endl;
         return 1;
     }
 
-    std::string input_file = argv[1];
-    std::string sort_key = argv[2];
-    std::string output_file = "sortedcpp.txt";
+    std::string input_file = argv[1]; //сортируемый файл
+    std::string sort_key = argv[2]; //ключ
+    std::string output_file = "sortedcpp.txt"; //отсортированный файл
 
     // --- ФАЗА 1 ---
-    auto start_split = std::chrono::high_resolution_clock::now();
-    int total_temp_files = splitFile(input_file, sort_key);
-    auto end_split = std::chrono::high_resolution_clock::now();
+    auto start_split = std::chrono::high_resolution_clock::now(); //фиксируем время
+    int total_temp_files = splitFile(input_file, sort_key); //пилим
+    auto end_split = std::chrono::high_resolution_clock::now(); //окончание времени
     
-    if (total_temp_files == 0) return 1;
+    if (total_temp_files == 0) return 1; //для ошибки чтения
 
     // --- ФАЗА 2 ---
-    auto start_merge = std::chrono::high_resolution_clock::now();
-    mergeFiles(total_temp_files, output_file, sort_key);
-    auto end_merge = std::chrono::high_resolution_clock::now();
+    auto start_merge = std::chrono::high_resolution_clock::now(); //фиксируем время
+    mergeFiles(total_temp_files, output_file, sort_key); //собираем файлы
+    auto end_merge = std::chrono::high_resolution_clock::now(); //окончание времени 
 
+    //считаем время всех фаз и общее время
     std::chrono::duration<double> split_dur = end_split - start_split;
     std::chrono::duration<double> merge_dur = end_merge - start_merge;
     std::chrono::duration<double> total_dur = end_merge - start_split;
 
+    //победа
     std::cout << "\n========================================" << std::endl;
     std::cout << "ПОЛНАЯ СОРТИРОВКА ЗАВЕРШЕНА" << std::endl;
     std::cout << "Время разбиения: " << split_dur.count() << " сек" << std::endl;
