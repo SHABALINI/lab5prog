@@ -192,7 +192,7 @@ public:
     bool operator()(const MergeElement& a, const MergeElement& b) const {
         if (key == "id") return a.order.id > b.order.id; //Развернули знак, так как в куче queue от макс к мин, а нам надо наоборот от мин к макс
         if (key == "amount"){
-            if(a.order.order_amount == b.order.order_amount) return a.order.id > a.order.id;
+            if(a.order.order_amount == b.order.order_amount) return a.order.id > b.order.id;
             return a.order.order_amount > b.order.order_amount;
         }
         if (key == "time"){ 
