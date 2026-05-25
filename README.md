@@ -1,7 +1,7 @@
 # lab5prog
 Лабораторная работа №5 по программированию: сортировка больших файлов
 Представлено 4 файла:
-1 - generate.py - файл, генерирующий csv файл для сортировки. Структура файла: id(неповторяющееся число), marketplace(строка), order_time(число UNIX TIMESTAMP), order_amount(дробное), ordet_weight(число), delivery_city (строка)
-2 - external_sort.cpp - сортировщик на C++
-3 - external_sort.py - сортировщик на Python
-4 - gui.py - обхединение всех модулей для демонстрации работоспособности
+1 - generate.py - файл, генерирующий csv файл для сортировки. Структура файла: id(неповторяющееся число), marketplace(строка), order_time(число UNIX TIMESTAMP), order_amount(дробное), ordet_weight(число), delivery_city (строка).
+2 - external_sort.cpp - сортировщик на C++.
+3 - external_sort.py - сортировщик на Python.
+4 - gui.py - обхединение всех модулей для демонстрации работоспособности.
