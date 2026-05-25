@@ -88,9 +88,15 @@ class SortApp:
         key = self.sort_key.get()
         self.log(f"Запуск внешней сортировки C++ по ключу [{key}]...")
         
-        cpp_binary = "./mysort"
+        #определяем какой исполняемый файл windows/linux
+        import platform
+        if platform.system() == "Windows":
+            cpp_binary = "mysort.exe"
+        else:
+            cpp_binary = "./mysort"
+
         if not os.path.exists(cpp_binary):
-            self.log("Ошибка: Скомпилированный файл ./mysort не найден в текущей папке!")
+            self.log(f"Ошибка: Скомпилированный файл {cpp_binary} не найден!")
             return
 
         start = time.perf_counter()
