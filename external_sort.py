@@ -1,7 +1,7 @@
-import csv
-import heapq
-import os
-import time
+import csv #чтение и запись csv файлов
+import heapq #для работы с кучей
+import os #удаление временных файлов
+import time #для засекания времени
 
 # Функция преобразует элементы строки к нужным типам данных для правильного сравнения
 def cast_row(row):
@@ -14,7 +14,7 @@ def cast_row(row):
         row[5]             # delivery_city
     ]
 
-# Словарь, который связывает имя ключа с индексом колонки в CSV
+# Словарь для быстрого доуступа, который связывает имя ключа с индексом колонки в CSV
 KEY_INDEXES = {
     "id": 0,
     "marketplace": 1,
@@ -24,27 +24,29 @@ KEY_INDEXES = {
     "city": 5
 }
 
-#
+#такой же принцип: разделяем на множество отсортированных файлов и потом будем склеивать
 def split_file(input_path, sort_key):
     print("Python Фаза 1: Разбиение большого файла на куски...")
-    key_idx = KEY_INDEXES[sort_key]
-    file_count = 0
-    chunk = []
+    key_idx = KEY_INDEXES[sort_key] #выясняем что нам нужно сортировать
+    file_count = 0 #счетчик файлов
+    chunk = [] #куда складываем строки
     MAX_ROWS = 200000 # 200тысяч строк
 
+    #благодаря with мы выйдем из файла, как только полностью его прочитаем
     with open(input_path, mode='r', encoding='utf-8') as f:
-        reader = csv.reader(f)
-        header = next(reader) # Пропускаем заголовок
+        reader = csv.reader(f) #читает и стримит строки
+        header = next(reader) # Пропускаем первую строку
 
         for row in reader:
             if row:
-                chunk.append(cast_row(row))
+                chunk.append(cast_row(row)) #преобразуем в нужные типы данныхи добавляем
             
             # Если набрали чанк — сортируем и сбрасываем на диск
             if len(chunk) >= MAX_ROWS:
-                # Сортируем по индексу выбранного ключа
+                # Сортируем по индексу выбранного ключа, используя стабильный Timsort
                 chunk.sort(key=lambda x: x[key_idx])
                 
+                #временные файлы
                 temp_name = f"py_temp_{file_count}.txt"
                 with open(temp_name, mode='w', newline='', encoding='utf-8') as temp_f:
                     writer = csv.writer(temp_f)
@@ -52,9 +54,9 @@ def split_file(input_path, sort_key):
                 
                 print(f"Создан временный файл: {temp_name}")
                 file_count += 1
-                chunk = []
+                chunk = [] #очищаем 
 
-        # Не забываем дописать остатки файла
+        #после окончания цикла не забываем дописать остатки файла (если меньше 200к строк)
         if chunk:
             chunk.sort(key=lambda x: x[key_idx])
             temp_name = f"py_temp_{file_count}.txt"
@@ -66,49 +68,51 @@ def split_file(input_path, sort_key):
     return file_count
 
 
-#
+#соединяем все файлы
 def merge_files(file_count, output_path, sort_key):
     print(f"Python Фаза 2: Слияние {file_count} файлов...")
     key_idx = KEY_INDEXES[sort_key]
     
-    # 1. Открываем все временные файлы одновременно
+    #Открываем все временные файлы одновременно
     opened_files = [open(f"py_temp_{i}.txt", mode='r', encoding='utf-8') for i in range(file_count)]
     # Создаем csv-ридеры для каждого файла
     readers = [csv.reader(f) for f in opened_files]
 
+    #открываем итоговый файл на запись
     with open(output_path, mode='w', newline='', encoding='utf-8') as out_f:
         writer = csv.writer(out_f)
         # Записываем заголовок
         writer.writerow(["id", "marketplace", "order_time", "order_amount", "order_weight", "delivery_city"])
 
-        # heapq.merge берет итераторы ридеров, приводит строки к нужным типам через cast_row
+        # heapq.merge - встроенная функция, которая берет итераторы ридеров, приводит строки к нужным типам через cast_row
         # и сливает их по выбранному ключу. lambda помогает ему понять, по какому полю сравнивать.
         merged_stream = heapq.merge(*readers, key=lambda x: cast_row(x)[key_idx])
         
         # Записываем отсортированный поток в итоговый файл
         writer.writerows(merged_stream)
 
-    # 2. Закрываем и удаляем временные файлы
+     #Закрываем и удаляем временные файлы
     for f in opened_files:
-        f.close()
+        f.close()#закрыли
     
     for i in range(file_count):
-        os.remove(f"py_temp_{i}.txt")
+        os.remove(f"py_temp_{i}.txt")#удалили
     print("Все временные файлы Python удалены.")
 
 def main(input_file, sort_key):
-    start_total = time.perf_counter()
+    start_total = time.perf_counter()#фиксируем старт времени
     
-    # Фаза 1
+    # Фаза 1. Все также как и в сишном файле
     start_split = time.perf_counter()
-    files_created = split_file(input_file, sort_key)
+    files_created = split_file(input_file, sort_key)#разбиваем
     end_split = time.perf_counter()
     
     # Фаза 2
     start_merge = time.perf_counter()
-    merge_files(files_created, "sortedpy.txt", sort_key)
+    merge_files(files_created, "sortedpy.txt", sort_key)#склеиваем
     end_merge = time.perf_counter()
     
+    #победе
     print("\n========================================")
     print("СОРТИРОВКА PYTHON ЗАВЕРШЕНА!")
     print(f"Время разбиения: {end_split - start_split:.2f} сек")
@@ -116,8 +120,8 @@ def main(input_file, sort_key):
     print(f"Общее время Python: {end_merge - start_total:.2f} сек")
     print("========================================")
 
+#это для запуска через терминал и тестов
 if __name__ == "__main__":
-    # Для теста из терминала: python3 external_sort.py data.csv city
     import sys
     if len(sys.argv) < 3:
         print("Использование: python3 external_sort.py <файл> <ключ: id|amount|time|weight|marketplace|city>")
